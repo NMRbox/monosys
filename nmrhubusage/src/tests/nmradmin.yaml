@@ -1,0 +1,9 @@
+EXCLUDE_PROCESSES:
+- xfce4-terminal
+- sudo 
+LOGGED_IN_PROCESSES:
+- Xvnc-core
+- bash
+- csh
+- dash
+- vncserver-virtual
