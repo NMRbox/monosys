@@ -15,7 +15,7 @@ from nmrhubusage import _YAMLS, ProcessInfo
 who_logger = logging.getLogger("who_logger")
 
 
-class NWho:
+class Who:
     def __init__(self, config):
         """
         Initialize Who.
@@ -63,14 +63,11 @@ def who_command():
     else:
         cpath = args.config
 
-
-
     with open(cpath) as f:
         config = yaml.safe_load(f)
 
-    who = NWho(config)
+    who = Who(config)
     who.show()
 
-who_command()
 
 
