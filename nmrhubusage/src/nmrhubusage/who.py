@@ -28,15 +28,19 @@ class Who:
                          self._logged_in_processes, self._exclude_processes)
 
 
-    @property
-    def toplist(self):
-        """Find top processes"""
+    def sessions(self,sample):
+        """Find top processes in sample"""
         rval = []
-        for p in ProcessInfo.collect_sample():
+        for p in sample: 
             if p.name in self._logged_in_processes:
                 if (tl := p.toplevel).name not in self._exclude_processes:
                     rval.append(tl)
         return rval
+
+    @property
+    def toplist(self):
+        """Find top processes"""
+        return self.sessions(ProcessInfo.collect_sample())
 
     def show(self):
         for top in self.toplist:
