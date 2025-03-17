@@ -10,17 +10,17 @@ from dataclasses import dataclass
 class ProcessInfo:
     pid: int
     parent_pid: int
-    name : str
+    name: str
     uid: int
     exe: str
     commandline: list[str]
     cwd: str
     cpu_util: float
-    memory_used: int #bytes
+    memory_used: int  # bytes
     start: datetime.datetime
 
-    _procs : ClassVar[dict[int,Any]] = {}
-    _user : ClassVar[dict[int,str]] = {}
+    _procs: ClassVar[dict[int, Any]] = {}
+    _user: ClassVar[dict[int, str]] = {}
 
     def __eq__(self, other):
         if isinstance(other, ProcessInfo):
@@ -33,15 +33,20 @@ class ProcessInfo:
     def __post_init__(self):
         ProcessInfo._procs[self.pid] = self
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Call __post_init__ to ensure the instance is properly registered.
+        self.__post_init__()
+
     @property
-    def parent(self)->'ProcessInfo':
+    def parent(self) -> 'ProcessInfo':
         return ProcessInfo._procs[self.parent_pid]
 
     @property
     def toplevel(self):
         candidate = self
         while True:
-            if  candidate.parent_pid == 0 or (p := ProcessInfo._procs[candidate.parent_pid]).uid != self.uid:
+            if candidate.parent_pid == 0 or (p := ProcessInfo._procs[candidate.parent_pid]).uid != self.uid:
                 return candidate
             candidate = p
 
@@ -52,18 +57,16 @@ class ProcessInfo:
         ProcessInfo._user[self.uid] = (u := pwd.getpwuid(self.uid).pw_name)
         return u
 
-
     @staticmethod
-    def _create(proc:psutil.Process)->'ProcessInfo':
-        """Create ProcessInfo object. proc.cpu_percent must be called prior to create to properly collect_sample
-        May raise psutil.NoSuchProcess, psutil.AccessDenied
+    def _create(proc: psutil.Process) -> 'ProcessInfo':
+        """Create ProcessInfo object. proc.cpu_percent must be called prior to create to properly collect_sample.
+        May raise psutil.NoSuchProcess, psutil.AccessDenied.
         """
-        # noinspection PyUnresolvedReferences
         return ProcessInfo(
             proc.info['pid'],
             proc.info['ppid'],
             proc.name(),
-            proc.info['uids'].real ,
+            proc.info['uids'].real,
             proc.info['exe'],
             proc.info['cmdline'],
             proc.info['cwd'],
@@ -73,29 +76,30 @@ class ProcessInfo:
         )
 
     @staticmethod
-    def collect_sample()->Iterable:
+    def collect_sample() -> Iterable:
         rval = []
 
-        # Initialize CPU percent for each process. This call starts the measurement.
+        # Initialize CPU percent for each process.
         for proc in psutil.process_iter():
             try:
                 proc.cpu_percent(interval=None)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
-        # Wait a short interval so that a subsequent CPU percentage call provides a measurement
+        # Wait a short interval so that a subsequent CPU percentage call provides a measurement.
         time.sleep(0.1)
 
         # Iterate over processes to collect data.
-        for proc in psutil.process_iter(['pid', 'ppid','name','uids', 'exe', 'cmdline', 'cwd','create_time']):
+        for proc in psutil.process_iter(['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time']):
             try:
                 rval.append(ProcessInfo._create(proc))
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return rval 
 
-def top_level_processes(sample = None)->Iterable[ProcessInfo]:
-    """Return top level processes"""
+def top_level_processes(sample=None) -> Iterable[ProcessInfo]:
+    """Return top level processes."""
     if sample is None:
         sample = ProcessInfo.collect_sample()
     return set(p.toplevel for p in sample)
+
