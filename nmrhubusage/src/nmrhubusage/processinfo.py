@@ -76,7 +76,7 @@ class ProcessInfo:
         )
 
     @staticmethod
-    def collect_sample(include_files: bool = False) -> Iterable:
+    def collect_sample(include_files: bool = False,interval:float=0.1) -> Iterable:
         rval = []
 
         before_offsets = {}
@@ -107,7 +107,7 @@ class ProcessInfo:
                     continue
 
         # Wait a short interval so that CPU percent measurement is updated (and used as our I/O delta interval).
-        time.sleep(0.1)
+        time.sleep(interval)
 
         # Now, iterate over processes to create ProcessInfo objects and, if requested, compute file offset differences.
         for proc in psutil.process_iter(['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time']):

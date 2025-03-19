@@ -2,7 +2,7 @@ from nmrhubusage import ProcessInfo
 
 
 def test_collect_sample():
-    procs = ProcessInfo.collect_sample(True)
+    procs = ProcessInfo.collect_sample(True,0.8)
     p: ProcessInfo
     for p in procs:
         if p.files:
