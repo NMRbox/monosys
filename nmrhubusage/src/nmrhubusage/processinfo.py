@@ -83,7 +83,7 @@ class ProcessInfo:
         )
 
     @staticmethod
-    def collect_sample(include_files:bool = False) -> Iterable:
+    def collect_sample(include_files:bool = False,interval:float=0.1) -> Iterable:
         rval = []
         io_counters = {}
 
@@ -96,7 +96,7 @@ class ProcessInfo:
                 continue
 
         # Wait a short interval so that a subsequent CPU percentage call provides a measurement.
-        time.sleep(0.1)
+        time.sleep(interval)
 
         # Iterate over processes to collect data.
         for proc in psutil.process_iter(
