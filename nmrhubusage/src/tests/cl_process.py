@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from nmrhubusage import ProcessInfo
 if __name__ == "__main__":
-    procs = ProcessInfo.collect_sample(True,interval=15)
+    procs = ProcessInfo.collect_sample(True)
     p: ProcessInfo
     for p in procs:
         if p.files:

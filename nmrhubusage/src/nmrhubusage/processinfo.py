@@ -18,7 +18,10 @@ class ProcessInfo:
     cpu_util: float
     memory_used: int  # bytes
     start: datetime.datetime
-    files: list = field(default_factory=list)
+    bytes_read: int
+    bytes_written: int
+    files :list[str] =  field(default_factory=list)
+
 
     _procs: ClassVar[dict[int, Any]] = {}
     _user: ClassVar[dict[int, str]] = {}
@@ -36,6 +39,7 @@ class ProcessInfo:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # Call __post_init__ to ensure the instance is properly registered.
         self.__post_init__()
 
     @property
@@ -58,10 +62,11 @@ class ProcessInfo:
         return u
 
     @staticmethod
-    def _create(proc: psutil.Process) -> 'ProcessInfo':
-        """Create a ProcessInfo object.
+    def _create(proc: psutil.Process,read:int=0,wrote:int=0) -> 'ProcessInfo':
+        """Create ProcessInfo object. proc.cpu_percent must be called prior to create to properly collect_sample.
         May raise psutil.NoSuchProcess, psutil.AccessDenied.
         """
+        c =  proc.io_counters()
         return ProcessInfo(
             proc.info['pid'],
             proc.info['ppid'],
@@ -71,71 +76,43 @@ class ProcessInfo:
             proc.info['cmdline'],
             proc.info['cwd'],
             proc.cpu_percent(interval=None),
-            proc.memory_info().rss,
-            datetime.datetime.fromtimestamp(proc.info['create_time'])
+            proc.memory_info().rss,  # memory in bytes
+            datetime.datetime.fromtimestamp(proc.info['create_time']),
+            read,
+            wrote
         )
 
     @staticmethod
-    def collect_sample(include_files: bool = False,interval:float=0.1) -> Iterable:
+    def collect_sample(include_files:bool = False) -> Iterable:
         rval = []
+        io_counters = {}
 
-        before_offsets = {}
-        if include_files:
-            for proc in psutil.process_iter(['pid']):
-                try:
-                    proc.cpu_percent(interval=None)
-                    open_files = proc.open_files()
-                    before_offsets[proc.pid] = {}
-                    for of in open_files:
-                        fd = of.fd
-                        fdinfo_path = f"/proc/{proc.pid}/fdinfo/{fd}"
-                        try:
-                            with open(fdinfo_path, "r") as f:
-                                for line in f:
-                                    if line.startswith("pos:"):
-                                        before_offsets[proc.pid][fd] = int(line.split()[1])
-                                        break
-                        except Exception:
-                            before_offsets[proc.pid][fd] = None
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-        else:
-            for proc in psutil.process_iter():
-                try:
-                    proc.cpu_percent(interval=None)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-
-        # Wait a short interval so that CPU percent measurement is updated (and used as our I/O delta interval).
-        time.sleep(interval)
-
-        # Now, iterate over processes to create ProcessInfo objects and, if requested, compute file offset differences.
-        for proc in psutil.process_iter(['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time']):
+        # Initialize CPU percent for each process.
+        for proc in psutil.process_iter():
             try:
-                pi = ProcessInfo._create(proc)
+                proc.cpu_percent(interval=None)
+                io_counters[proc.pid] = proc.io_counters()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+        # Wait a short interval so that a subsequent CPU percentage call provides a measurement.
+        time.sleep(0.1)
+
+        # Iterate over processes to collect data.
+        for proc in psutil.process_iter(
+                ['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time','io_counters']):
+
+            try:
+                read = wrote = 0
+                before = io_counters.get(proc.pid,None)
+                if before:
+                    counters = proc.io_counters()
+                    read = counters.read_bytes - before.read_bytes
+                    wrote = counters.write_bytes - before.write_bytes
+
+                rval.append(pi := ProcessInfo._create(proc,read,wrote))
                 if include_files:
-                    open_files = proc.open_files()
-                    files_with_io = []
-                    for of in open_files:
-                        fd = of.fd
-                        fdinfo_path = f"/proc/{proc.pid}/fdinfo/{fd}"
-                        offset_after = None
-                        try:
-                            with open(fdinfo_path, "r") as f:
-                                for line in f:
-                                    if line.startswith("pos:"):
-                                        offset_after = int(line.split()[1])
-                                        break
-                        except Exception:
-                            offset_after = None
-                        offset_before = before_offsets.get(proc.pid, {}).get(fd)
-                        if offset_before is not None and offset_after is not None:
-                            diff = offset_after - offset_before
-                        else:
-                            diff = "N/A"
-                        files_with_io.append((of.path, of.mode, diff))
-                    pi.files = files_with_io
-                rval.append(pi)
+                    pi.files =[(of.path,of.mode) for of in proc.open_files()]
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return rval 
