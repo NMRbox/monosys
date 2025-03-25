@@ -26,6 +26,13 @@ class ProcessInfo:
     _procs: ClassVar[dict[int, Any]] = {}
     _user: ClassVar[dict[int, str]] = {}
 
+    @staticmethod
+    def uid2name(uid:int)->str:
+        if (u := ProcessInfo._user.get(uid)) is not None:
+            return u
+        ProcessInfo._user[uid] = (u := pwd.getpwuid(uid).pw_name)
+        return u
+
     def __eq__(self, other):
         if isinstance(other, ProcessInfo):
             return self.pid == other.pid
@@ -55,11 +62,8 @@ class ProcessInfo:
             candidate = p
 
     @property
-    def username(self):
-        if (u := ProcessInfo._user.get(self.uid)) is not None:
-            return u
-        ProcessInfo._user[self.uid] = (u := pwd.getpwuid(self.uid).pw_name)
-        return u
+    def username(self)->str:
+        return ProcessInfo.uid2name(self.uid)
 
     @staticmethod
     def _create(proc: psutil.Process,read:int=0,wrote:int=0) -> 'ProcessInfo':

@@ -5,8 +5,8 @@ if __name__ == "__main__":
     p: ProcessInfo
     for p in procs:
         if p.files:
-            print(p.name)
+            print(p.name, p.username)
             for f in p.files:
-                print(f"\t{f[0]} {f[2]}")
+                print(f"\t{f[0]} {f[1]}")
 
 
