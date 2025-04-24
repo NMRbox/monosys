@@ -1,0 +1,4 @@
+---
+health: /etc/nmrbox.d/systemhealth.yaml
+nmradmin: /etc/nmrhub.d/nmradmin.yaml
+...
