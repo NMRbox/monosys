@@ -92,7 +92,7 @@ class ProcessInfo:
         io_counters = {}
 
         # Initialize CPU percent for each process.
-        for proc in psutil.process_iter():
+        for proc in psutil.process_iter(['pid','cpu_percent','io_counters'],ad_value=None):
             try:
                 proc.cpu_percent(interval=None)
                 io_counters[proc.pid] = proc.io_counters()
@@ -104,7 +104,8 @@ class ProcessInfo:
 
         # Iterate over processes to collect data.
         for proc in psutil.process_iter(
-                ['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time','io_counters']):
+                ['pid', 'ppid', 'name', 'uids', 'exe', 'cmdline', 'cwd', 'create_time','io_counters'],
+                ad_value=None):
 
             try:
                 read = wrote = 0

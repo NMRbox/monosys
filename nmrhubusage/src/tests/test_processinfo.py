@@ -8,7 +8,7 @@ def test_collect_sample():
         if p.files:
             print(p.name)
             for f in p.files:
-                print(f"\t{f[0]} {f[2]}")
+                print(f"\t{f[0]} {f[1]}")
 
 def test_without():
     procs = ProcessInfo.collect_sample(False)
