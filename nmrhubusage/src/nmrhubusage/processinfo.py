@@ -1,3 +1,4 @@
+from __future__ import annotations
 import datetime
 import pwd
 import time
@@ -66,25 +67,28 @@ class ProcessInfo:
         return ProcessInfo.uid2name(self.uid)
 
     @staticmethod
-    def _create(proc: psutil.Process,read:int=0,wrote:int=0) -> 'ProcessInfo':
+    def _create(proc: psutil.Process,read:int=0,wrote:int=0) -> ProcessInfo | None:
         """Create ProcessInfo object. proc.cpu_percent must be called prior to create to properly collect_sample.
         May raise psutil.NoSuchProcess, psutil.AccessDenied.
         """
-        c =  proc.io_counters()
-        return ProcessInfo(
-            proc.info['pid'],
-            proc.info['ppid'],
-            proc.name(),
-            proc.info['uids'].real,
-            proc.info['exe'],
-            proc.info['cmdline'],
-            proc.info['cwd'],
-            proc.cpu_percent(interval=None),
-            proc.memory_info().rss,  # memory in bytes
-            datetime.datetime.fromtimestamp(proc.info['create_time']),
-            read,
-            wrote
-        )
+        _ =  proc.io_counters()
+        try:
+            return ProcessInfo(
+                proc.info['pid'],
+                proc.info['ppid'],
+                proc.name(),
+                proc.info['uids'].real,
+                proc.info['exe'],
+                proc.info['cmdline'],
+                proc.info['cwd'],
+                proc.cpu_percent(interval=None),
+                proc.memory_info().rss,  # memory in bytes
+                datetime.datetime.fromtimestamp(proc.info['create_time']),
+                read,
+                wrote
+            )
+        except KeyError:
+            return None
 
     @staticmethod
     def collect_sample(include_files:bool = False,interval:float=0.1) -> Iterable:
@@ -110,14 +114,15 @@ class ProcessInfo:
             try:
                 read = wrote = 0
                 before = io_counters.get(proc.pid,None)
-                if before:
+                if before is not None:
                     counters = proc.io_counters()
                     read = counters.read_bytes - before.read_bytes
                     wrote = counters.write_bytes - before.write_bytes
 
-                rval.append(pi := ProcessInfo._create(proc,read,wrote))
-                if include_files:
-                    pi.files =[(of.path,of.mode) for of in proc.open_files()]
+                if (pi := ProcessInfo._create(proc,read,wrote)) is not None:
+                    rval.append(pi)
+                    if include_files:
+                        pi.files =[(of.path,of.mode) for of in proc.open_files()]
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return rval 
