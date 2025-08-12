@@ -52,6 +52,7 @@ class ProcessInfo:
 
     @property
     def parent(self) -> 'ProcessInfo':
+        """buggy"""
         return ProcessInfo._procs[self.parent_pid]
 
     @property
@@ -59,6 +60,8 @@ class ProcessInfo:
         candidate = self
         while True:
             if candidate.parent_pid == 0 or (p := ProcessInfo._procs[candidate.parent_pid]).uid != self.uid:
+                return candidate
+            if (p := ProcessInfo._procs.get(candidate.parent_pid,None)) is None or p.uid != self.uid:
                 return candidate
             candidate = p
 
@@ -91,7 +94,7 @@ class ProcessInfo:
             return None
 
     @staticmethod
-    def collect_sample(include_files:bool = False,interval:float=0.1) -> Iterable:
+    def collect_sample(include_files:bool = False,interval:float=0.1) -> Iterable[ProcessInfo]:
         rval = []
         io_counters = {}
 

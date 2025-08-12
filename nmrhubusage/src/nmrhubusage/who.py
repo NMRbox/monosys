@@ -4,6 +4,7 @@ import datetime
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Iterable, Mapping
 
 import psutil
 import argparse
@@ -13,6 +14,21 @@ from nmrhubusage import _YAMLS, ProcessInfo
 
 # Setup local logger named "who_logger"
 who_logger = logging.getLogger("who_logger")
+
+def _top(p:ProcessInfo,pmap:Mapping[int,ProcessInfo])->ProcessInfo:
+    """Recursive function to find top level processes"""
+    working = p
+    while True:
+        if working.parent_pid <= 1:
+            return working
+        if (parent := pmap.get(working.parent_pid,None)) is not None:
+            if parent.uid != working.uid:
+                return working
+            working = parent
+        else:
+            who_logger.warning(
+                f"{working.name}  {working.uid} {working.commandline} parent {working.parent_pid} not in sample")
+            return working
 
 
 class Who:
@@ -28,12 +44,14 @@ class Who:
                          self._logged_in_processes, self._exclude_processes)
 
 
-    def sessions(self,sample):
+    def sessions(self,sample:Iterable[ProcessInfo]):
         """Find top processes in sample"""
         rval = []
+        pmap = {s.pid:s for s in sample}
+
         for p in sample: 
             if p.name in self._logged_in_processes:
-                if (tl := p.toplevel).name not in self._exclude_processes:
+                if (tl := _top(p,pmap)).name not in self._exclude_processes:
                     rval.append(tl)
         return rval
 
