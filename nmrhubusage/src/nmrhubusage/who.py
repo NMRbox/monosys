@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Who which considers VNC logins, configurable via a YAML file."""
-import datetime
+import argparse
 import logging
-from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Mapping
 
-import psutil
-import argparse
 import yaml
-import os
+
 from nmrhubusage import _YAMLS, ProcessInfo
 
 # Setup local logger named "who_logger"
@@ -55,6 +52,17 @@ class Who:
                     rval.append(tl)
         return rval
 
+    def user_sessions(self,uid:int, sample:Iterable[ProcessInfo]):
+        """Find top processes in sample"""
+        rval = []
+        pmap = {s.pid:s for s in sample}
+
+        for p in sample:
+            if p.uid == uid and p.name in self._logged_in_processes:
+                if (tl := _top(p,pmap)).name not in self._exclude_processes:
+                    rval.append(tl)
+        return rval
+
     @property
     def toplist(self):
         """Find top processes"""
@@ -67,7 +75,7 @@ class Who:
             print(pentry)
             who_logger.debug("Displayed process: %s", pentry)
 
-def who_command():
+def who_command(uid = None):
     """Execute as command line"""
     yamls = ','.join(_YAMLS)
     parser = argparse.ArgumentParser(description="Who: Process display tool with VNC login considerations.")
@@ -89,7 +97,13 @@ def who_command():
         config = yaml.safe_load(f)
 
     who = Who(config)
-    who.show()
+    if uid is None:
+        who.show()
+    else:
+        sample = ProcessInfo.collect_sample()
+        user_sessions  = who.user_sessions(uid,sample)
+        for u in user_sessions:
+            print(u)
 
 
 
