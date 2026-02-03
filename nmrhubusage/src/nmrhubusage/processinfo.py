@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 import pwd
 import time
-from typing import Any, ClassVar, Iterable
+from typing import Any, ClassVar, Iterable, Optional
 
 import psutil
 from dataclasses import dataclass, field
@@ -13,15 +13,15 @@ class ProcessInfo:
     parent_pid: int
     name: str
     uid: int
-    exe: str
-    commandline: list[str]
-    cwd: str
+    exe: Optional[str]
+    commandline: Optional[list[str]]
+    cwd: Optional[str]
     cpu_util: float
     memory_used: int  # bytes
     start: datetime.datetime
     bytes_read: int
     bytes_written: int
-    files :list[str] =  field(default_factory=list)
+    files :list =  field(default_factory=list)
 
 
     _procs: ClassVar[dict[int, Any]] = {}
@@ -73,17 +73,23 @@ class ProcessInfo:
     def _create(proc: psutil.Process,read:int=0,wrote:int=0) -> ProcessInfo | None:
         """Create ProcessInfo object. proc.cpu_percent must be called prior to create to properly collect_sample.
         May raise psutil.NoSuchProcess, psutil.AccessDenied.
+        Handles restricted /proc access (hidepid=2) by gracefully handling None values for inaccessible fields.
         """
-        _ =  proc.io_counters()
         try:
+            # Try to get io_counters, but ignore AccessDenied
+            try:
+                _ = proc.io_counters()
+            except (psutil.AccessDenied, AttributeError):
+                pass
+
             return ProcessInfo(
                 proc.info['pid'],
                 proc.info['ppid'],
                 proc.name(),
                 proc.info['uids'].real,
-                proc.info['exe'],
-                proc.info['cmdline'],
-                proc.info['cwd'],
+                proc.info.get('exe'),  # May be None if access denied
+                proc.info.get('cmdline'),  # May be None if access denied
+                proc.info.get('cwd'),  # May be None if access denied
                 proc.cpu_percent(interval=None),
                 proc.memory_info().rss,  # memory in bytes
                 datetime.datetime.fromtimestamp(proc.info['create_time']),
@@ -118,14 +124,22 @@ class ProcessInfo:
                 read = wrote = 0
                 before = io_counters.get(proc.pid,None)
                 if before is not None:
-                    counters = proc.io_counters()
-                    read = counters.read_bytes - before.read_bytes
-                    wrote = counters.write_bytes - before.write_bytes
+                    try:
+                        counters = proc.io_counters()
+                        read = counters.read_bytes - before.read_bytes
+                        wrote = counters.write_bytes - before.write_bytes
+                    except (psutil.AccessDenied, AttributeError):
+                        # Cannot access io_counters for this process
+                        pass
 
                 if (pi := ProcessInfo._create(proc,read,wrote)) is not None:
                     rval.append(pi)
                     if include_files:
-                        pi.files =[(of.path,of.mode) for of in proc.open_files()]
+                        try:
+                            pi.files =[(of.path,of.mode) for of in proc.open_files()]
+                        except (psutil.AccessDenied, AttributeError):
+                            # Cannot access open files for this process (permission denied)
+                            pi.files = []
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return rval 

@@ -23,8 +23,6 @@ def _top(p:ProcessInfo,pmap:Mapping[int,ProcessInfo])->ProcessInfo:
                 return working
             working = parent
         else:
-            who_logger.warning(
-                f"{working.name}  {working.uid} {working.commandline} parent {working.parent_pid} not in sample")
             return working
 
 
