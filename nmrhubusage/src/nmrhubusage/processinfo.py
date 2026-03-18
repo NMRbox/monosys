@@ -7,6 +7,9 @@ from typing import Any, ClassVar, Iterable, Optional
 import psutil
 from dataclasses import dataclass, field
 
+from nmrhubusage import nmrhubusage_logger
+
+
 @dataclass
 class ProcessInfo:
     pid: int
@@ -109,7 +112,10 @@ class ProcessInfo:
             try:
                 proc.cpu_percent(interval=None)
                 io_counters[proc.pid] = proc.io_counters()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+            except (psutil.NoSuchProcess, psutil.AccessDenied,FileNotFoundError):
+                continue
+            except Exception as e:
+                nmrhubusage_logger.exception(e)
                 continue
 
         # Wait a short interval so that a subsequent CPU percentage call provides a measurement.
