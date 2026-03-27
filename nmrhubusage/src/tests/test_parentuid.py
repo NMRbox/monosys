@@ -2,14 +2,16 @@
 """Test processinfo collection with restricted /proc access."""
 
 import sys
+import logging
 from pathlib import Path
+
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from nmrhubusage import ProcessInfo
+from nmrhubusage import ProcessInfo ,nmrhubusage_logger
 
-def test_collect_sample():
+def test_collect_parents():
     """Test that ProcessInfo.collect_sample() works with restricted /proc access."""
     print("Collecting process sample...")
     sample = list(ProcessInfo.collect_sample(include_files=False, interval=0.1))
@@ -31,4 +33,6 @@ def test_collect_sample():
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
+#    nmrhubusage_logger.setLevel(logging.DEBUG)
     test_collect_parents()

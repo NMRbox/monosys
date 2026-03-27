@@ -65,17 +65,19 @@ class ProcessInfo:
 
     @property
     def parent_uids(self) -> list[int]:
-        """Return list of uids of parent processes"""
+        """Return list of uids of parent processes, tracking UID changes in the parent chain"""
         uids = []
         visited = set()
         pid = self.parent_pid
+        current_uid = self.uid
         while pid and pid not in visited:
             visited.add(pid)
             parent = ProcessInfo._procs.get(pid)
             if parent is None:
                 break
-            if parent.uid != self.uid and parent.uid not in uids:
+            if parent.uid != current_uid:
                 uids.append(parent.uid)
+                current_uid = parent.uid
             pid = parent.parent_pid
         return uids
 
@@ -101,7 +103,7 @@ class ProcessInfo:
                 proc.info['pid'],
                 proc.info['ppid'],
                 proc.name(),
-                proc.info['uids'].real,
+                proc.info['uids'].effective,  
                 proc.info.get('exe'),  # May be None if access denied
                 proc.info.get('cmdline'),  # May be None if access denied
                 proc.info.get('cwd'),  # May be None if access denied
