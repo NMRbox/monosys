@@ -68,6 +68,7 @@ class Who:
 
     def show(self):
         for top in self.toplist:
+            c = top.chain
             timestr = top.start.strftime("%Y-%m-%d %H:%M:%S")
             pentry = "{:18} {:8d} {:18} {}".format(top.username, top.pid, top.name, timestr)
             print(pentry)

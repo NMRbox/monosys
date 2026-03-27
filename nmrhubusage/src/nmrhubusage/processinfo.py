@@ -54,11 +54,6 @@ class ProcessInfo:
         self.__post_init__()
 
     @property
-    def parent(self) -> 'ProcessInfo':
-        """buggy"""
-        return ProcessInfo._procs[self.parent_pid]
-
-    @property
     def toplevel(self):
         candidate = self
         while True:
@@ -67,6 +62,23 @@ class ProcessInfo:
             if (p := ProcessInfo._procs.get(candidate.parent_pid,None)) is None or p.uid != self.uid:
                 return candidate
             candidate = p
+
+    @property
+    def parent_uids(self) -> list[int]:
+        """Return list of uids of parent processes"""
+        uids = []
+        visited = set()
+        pid = self.parent_pid
+        while pid and pid not in visited:
+            visited.add(pid)
+            parent = ProcessInfo._procs.get(pid)
+            if parent is None:
+                break
+            if parent.uid != self.uid and parent.uid not in uids:
+                uids.append(parent.uid)
+            pid = parent.parent_pid
+        return uids
+
 
     @property
     def username(self)->str:
